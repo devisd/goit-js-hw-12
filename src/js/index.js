@@ -1,55 +1,70 @@
 // import Styles
-import '../css/styles.css';
+import "../css/styles.css";
 // SimpleLightbox
-import SimpleLightbox from 'simplelightbox';
-import 'simplelightbox/dist/simple-lightbox.min.css';
+import SimpleLightbox from "simplelightbox";
+import "simplelightbox/dist/simple-lightbox.min.css";
 // Notiflix
-import { Notify } from 'notiflix/build/notiflix-notify-aio';
+import { Notify } from "notiflix/build/notiflix-notify-aio";
 // import API
-import FetchImages from './fetchPhoto';
+import FetchImages from "./fetchPhoto";
 
+const refs = {
+  form: document.querySelector("#search-form"),
+  galleryList: document.querySelector(".gallery"),
+  loadMoreBtn: document.querySelector(".load-more"),
+  fetchPhoto: new FetchImages(),
+  gallery: new SimpleLightbox(".gallery a", { loop: true, enableKeyboard: true, docClose: true, }),
+};
 
-const form = document.querySelector('#search-form');
-const galleryList = document.querySelector('.gallery');
-const loadMoreBtn = document.querySelector('.load-more')
+refs.loadMoreBtn.setAttribute("disabled", true);
 
-const fetchPhoto = new FetchImages()
-    
-form.addEventListener('submit', onSearch);
-loadMoreBtn.addEventListener('click', onClick)
+refs.form.addEventListener("submit", onSearch);
+refs.loadMoreBtn.addEventListener("click", onClick);
 
 function onSearch(e) {
-    e.preventDefault();
+  e.preventDefault();
 
-    fetchPhoto.query = e.currentTarget.elements.searchQuery.value;
-
-    if (fetchPhoto.query === '') {
-        return Notify.warning('Please enter your request')
+  refs.loadMoreBtn.removeAttribute("disabled");
+  refs.fetchPhoto.query = e.currentTarget.elements.searchQuery.value;
+  
+  if (refs.fetchPhoto.query === "") {
+      refs.loadMoreBtn.setAttribute("disabled", true);
+      return Notify.warning("Please enter your request");
     }
-
+    
     clearMarkup();
-    fetchPhoto.resetPage();
-
-    fetchPhoto.fetchImages()
-        .then(markupPhotoList)
-        .then(renderGallery)
-        .catch(onError)
+    refs.fetchPhoto.resetPage();
+    
+  try {
+    refs.fetchPhoto.fetchImages()
+      .then((object) => {
+        totalHitsCheck(object);
+        return markupPhotoList(object);
+      })
+      .then(renderGallery);
+  } catch {
+    onError();
+  }
 }
 
 function onClick() {
-    fetchPhoto.fetchImages()
-        .then(markupPhotoList)
-        .then(renderGallery)
+  onFetch();
+}
+
+function onFetch() {
+  refs.fetchPhoto.fetchImages()
+    .then(markupPhotoList)
+    .then(renderGallery);
+}
+
+function totalHitsCheck(object) {
+  return object.total === 0
+    ? Notify.failure("Sorry, there are no images matching your search query. Please try again.")
+    : Notify.success(`Hooray! We found ${object.totalHits} images.`);
 }
 
 function markupPhotoList(object) {
-    if (object.total === 0) {
-        Notify.failure('Sorry, there are no images matching your search query. Please try again.');
-    } else {
-        Notify.success(`Hooray! We found ${object.totalHits} images.`);
-    }
-
-    return object.hits.map(({ largeImageURL, webformatURL, tags, likes, views, comments, downloads }) =>
+  return object.hits.map(({ largeImageURL, webformatURL, tags, likes, views, comments, downloads, }) =>
         `<a class="gallery__item" href="${largeImageURL}">
             <div class="photo-card">
                 <img src="${webformatURL}" alt="${tags}" loading="lazy" />
@@ -69,28 +84,21 @@ function markupPhotoList(object) {
                 </div>
             </div>
         </a>`
-    ).join('');
+    ).join("");
 }
 
 function renderGallery(markup) {
-    galleryList.insertAdjacentHTML("beforeend", markup);
-    new SimpleLightbox('.gallery a', { loop: true, enableKeyboard: true, docClose: true });
+  refs.galleryList.insertAdjacentHTML("beforeend", markup);
+  refs.gallery.refresh();
 }
 
 function clearMarkup() {
-    galleryList.innerHTML = '';
+  refs.galleryList.innerHTML = "";
 }
 
 function onError() {
-    Notify.failure('Oops, that went wrong. Please try again later');
+  Notify.failure("Oops, that went wrong. Please try again later");
 }
-
-
-// После первого запроса при каждом новом поиске выводить уведомление в котором будет написано сколько всего нашли изображений (свойство totalHits).
-// Notify.success(`Hooray! We found ${totalHits} images.`);
-
-// Если бэкенд возвращает пустой массив, значит ничего подходящего найдено небыло.
-// Notify.failure('Sorry, there are no images matching your search query. Please try again.');
 
 // В ответе бэкенд возвращает свойство totalHits - общее количество изображений которые подошли под критерий поиска (для бесплатного аккаунта). Если пользователь дошел до конца коллекции, пряч кнопку и выводи уведомление
 // Notify.info('We're sorry, but you've reached the end of search results.');
