@@ -25,17 +25,19 @@ function onSearch(e) {
   e.preventDefault();
 
   refs.loadMoreBtn.removeAttribute("disabled");
-  refs.fetchPhoto.query = e.currentTarget.elements.searchQuery.value;
-  
+
+  try {
+
+    refs.fetchPhoto.query = e.currentTarget.elements.searchQuery.value.trim();
+
   if (refs.fetchPhoto.query === "") {
       refs.loadMoreBtn.setAttribute("disabled", true);
       return Notify.warning("Please enter your request");
     }
-    
+
     clearMarkup();
     refs.fetchPhoto.resetPage();
-    
-  try {
+
     refs.fetchPhoto.fetchImages()
       .then((object) => {
         totalHitsCheck(object);
@@ -48,19 +50,29 @@ function onSearch(e) {
 }
 
 function onClick() {
-  onFetch();
-}
-
-function onFetch() {
   refs.fetchPhoto.fetchImages()
-    .then(markupPhotoList)
+    .then(object => {
+      checkEndofSearchResult(object);
+      return markupPhotoList(object);
+    })
     .then(renderGallery);
 }
 
+function checkEndofSearchResult(object) {
+  if (object.hits.length < refs.fetchPhoto.per_page) {
+    refs.loadMoreBtn.setAttribute("disabled", true);
+    return Notify.info('We`re sorry, but you`ve reached the end of search results.');
+  }
+}
+
 function totalHitsCheck(object) {
-  return object.total === 0
-    ? Notify.failure("Sorry, there are no images matching your search query. Please try again.")
-    : Notify.success(`Hooray! We found ${object.totalHits} images.`);
+  if (object.total === 0) {
+    refs.loadMoreBtn.setAttribute("disabled", true);
+    return Notify.failure("Sorry, there are no images matching your search query. Please try again.")
+  }
+  refs.loadMoreBtn.removeAttribute("disabled");
+  Notify.success(`Hooray! We found ${object.totalHits} images.`);
+  checkEndofSearchResult(object);
 }
 
 function markupPhotoList(object) {
@@ -97,11 +109,9 @@ function clearMarkup() {
 }
 
 function onError() {
-  Notify.failure("Oops, that went wrong. Please try again later");
+  refs.loadMoreBtn.setAttribute("disabled", true);
+  return Notify.failure("Oops, that went wrong. Please try again later");
 }
-
-// В ответе бэкенд возвращает свойство totalHits - общее количество изображений которые подошли под критерий поиска (для бесплатного аккаунта). Если пользователь дошел до конца коллекции, пряч кнопку и выводи уведомление
-// Notify.info('We're sorry, but you've reached the end of search results.');
 
 // ==========================================================================================================
 

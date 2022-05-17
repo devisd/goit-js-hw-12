@@ -7,6 +7,7 @@ export default class FetchImages {
   constructor() {
     this.searchQuery = "";
     this.page = 1;
+    this.per_page = 40;
   }
 
   fetchImages() {
@@ -19,7 +20,7 @@ export default class FetchImages {
           orientation: "horizontal",
           safesearch: "true",
           page: this.page,
-          per_page: "40",
+          per_page: this.per_page,
         },
       })
       .then((response) => {
